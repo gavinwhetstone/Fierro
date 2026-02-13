@@ -586,7 +586,7 @@ void find_penetrating_nodes(double depth_cap, DCArrayKokkos <double> &coords,
                             size_t num_patches, CArrayKokkos <size_t> &nbox, CArrayKokkos <size_t> &nsort,
                             DCArrayKokkos <size_t> nodes_in_elem, CArrayKokkos <size_t> elems_in_patch,
                             size_t num_bdy_nodes, CArrayKokkos <size_t> nodes_in_patch, CArrayKokkos <double> xi,
-                            CArrayKokkos <double> eta);
+                            CArrayKokkos <double> eta, bool preload);
 
 /// end of contact state functions *********************************************************************************
 
