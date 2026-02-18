@@ -1354,6 +1354,7 @@ void find_penetrating_nodes(double depth_cap, DCArrayKokkos <double> &coords,
 {
     RUN({
         double bounding_box[6];
+        double surf_normal[3];
         // running find nodes for each contact surface with capture box size set to depth_cap in all directions
         for (int patch_lid = 0; patch_lid < num_bdy_patches; patch_lid++) {
             size_t nodes_gid[4];
@@ -1374,7 +1375,7 @@ void find_penetrating_nodes(double depth_cap, DCArrayKokkos <double> &coords,
             }
             
 
-            penetration_capture_box(depth_cap, bounding_box, nodes_gid, coords);
+            penetration_capture_box(fmin(depth_cap,min_edge_len*dist_factor), bounding_box, nodes_gid, coords);
 
             // Determine the buckets that intersect with the capture box
             double ibox_max_d = fmax(0.0, fmin((double)(Sx - 1), floor((bounding_box[0] - x_min) / bucket_size))); // NOLINT(*-narrowing-conversions)
@@ -1415,12 +1416,29 @@ void find_penetrating_nodes(double depth_cap, DCArrayKokkos <double> &coords,
                 {
                     size_t node_gid = nsort(npoint(b) + i);
                     
-                    // finding distance for cutoff check
-                    double dist_to_patch;
+                    // finding distance for cutoff check, looking at nodes and mid point of path
+                    /* double dist_to_patch;
                     dist_to_patch = sqrt(pow(coords(nodes_gid[0],0) - coords(node_gid,0),2) + pow(coords(nodes_gid[0],1) - coords(node_gid,1),2) + pow(coords(nodes_gid[0],2) - coords(node_gid,2),2));
                     dist_to_patch = fmin(dist_to_patch, sqrt(pow(coords(nodes_gid[1],0) - coords(node_gid,0),2) + pow(coords(nodes_gid[1],1) - coords(node_gid,1),2) + pow(coords(nodes_gid[1],2) - coords(node_gid,2),2)));
                     dist_to_patch = fmin(dist_to_patch, sqrt(pow(coords(nodes_gid[2],0) - coords(node_gid,0),2) + pow(coords(nodes_gid[2],1) - coords(node_gid,1),2) + pow(coords(nodes_gid[2],2) - coords(node_gid,2),2)));
                     dist_to_patch = fmin(dist_to_patch, sqrt(pow(coords(nodes_gid[3],0) - coords(node_gid,0),2) + pow(coords(nodes_gid[3],1) - coords(node_gid,1),2) + pow(coords(nodes_gid[3],2) - coords(node_gid,2),2)));
+                    double mid_x = (coords(nodes_gid[0],0)+coords(nodes_gid[1],0)+coords(nodes_gid[2],0)+coords(nodes_gid[3],0))/4;
+                    double mid_y = (coords(nodes_gid[0],1)+coords(nodes_gid[1],1)+coords(nodes_gid[2],1)+coords(nodes_gid[3],1))/4;
+                    double mid_z = (coords(nodes_gid[0],2)+coords(nodes_gid[1],2)+coords(nodes_gid[2],2)+coords(nodes_gid[3],2))/4;
+                    dist_to_patch = fmin(dist_to_patch, sqrt(pow(mid_x - coords(node_gid,0),2) + pow(mid_y - coords(node_gid,1),2) + pow(mid_z - coords(node_gid,2),2))); */
+                    double zero = 0;
+                    get_penetration_normal(coords, zero, zero, surf_normal, xi, eta, nodes_gid);
+                    double px = coords(node_gid,0);
+                    double py = coords(node_gid,1);
+                    double pz = coords(node_gid,2);
+                    double xn = coords(nodes_gid[0],0);
+                    double yn = coords(nodes_gid[0],1);
+                    double zn = coords(nodes_gid[0],2);
+                    double c = (surf_normal[0]*(px-xn)+surf_normal[1]*(py-yn)+surf_normal[2]*(pz-zn))/(-surf_normal[0]*surf_normal[0] - surf_normal[1]*surf_normal[1] - surf_normal[2]*surf_normal[2]);
+                    double Px = px + c*surf_normal[0];
+                    double Py = py + c*surf_normal[1];
+                    double Pz = pz + c*surf_normal[2];
+                    double dist_to_patch = sqrt((px-Px)*(px-Px)+(py-Py)*(py-Py)+(pz-Pz)*(pz-Pz));
                     // distance cutoff
                     if (dist_to_patch > dist_factor*min_edge_len) {
                         continue;
@@ -1742,7 +1760,7 @@ void penetration_sweep(double x_min, double y_min, double z_min, double bounding
     /* RUN({
         for (int i = 0; i < node_penetrations.dims(0); i++) {
             for (int j = 0; j < node_penetrations.dims(1); j++) {
-                if (node_penetrations(i,j) < num_bdy_patches) {
+                if (node_penetrations(i,j) < num_bdy_patches || j==0) {
                     printf("%lu  ", (unsigned long)node_penetrations(i,j));
                 }
             }
@@ -2534,7 +2552,7 @@ void contact_state_t::initialize(size_t num_dims, size_t num_nodes_in_patch, con
 
     // sizing possible nodes and buckets
     possible_nodes = CArrayKokkos<size_t>(num_bdy_nodes, "possible_nodes");
-    buckets = CArrayKokkos<size_t>(pow(10,3), "buckets");
+    buckets = CArrayKokkos<size_t>(pow(64,3), "buckets");
 
     // sizing arrays based on num of bdy patches and bdy nodes
     contact_forces = CArrayKokkos<double>(num_bdy_nodes,3, "contact_forces");
